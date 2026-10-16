@@ -64,6 +64,8 @@ export declare class ResearchService {
             feedTitle: string | undefined;
             finalUrl: string;
             newItems: import("./types.js").SubscriptionItem[];
+            baselined: boolean;
+            discoveredCount: number;
             error: undefined;
         } | {
             subscription: import("./types.js").ResearchSubscription;
@@ -71,6 +73,8 @@ export declare class ResearchService {
             error: string;
             feedTitle?: undefined;
             finalUrl?: undefined;
+            baselined?: undefined;
+            discoveredCount?: undefined;
         })[];
     }>;
 }

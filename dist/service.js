@@ -154,7 +154,7 @@ export class ResearchService {
             try {
                 const feed = await fetchFeed(target.url, signal);
                 const stored = this.database.completeSubscriptionScan(target.id, feed.items, now);
-                results.push({ subscription: stored.subscription, feedTitle: feed.title, finalUrl: feed.finalUrl, newItems: stored.newItems, error: undefined });
+                results.push({ subscription: stored.subscription, feedTitle: feed.title, finalUrl: feed.finalUrl, newItems: stored.newItems, baselined: stored.baselined, discoveredCount: stored.discoveredCount, error: undefined });
             }
             catch (error) {
                 results.push({ subscription: target, newItems: [], error: error instanceof Error ? error.message : String(error) });
