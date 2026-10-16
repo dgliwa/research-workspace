@@ -31,6 +31,7 @@ Research depth is `quick`, `standard`, or `deep`. Tool instructions recommend ap
 - `research_due` — list active projects due for research
 - `research_question_add` / `research_question_update` — preserve missing constraints and answers
 - `research_search` — execute current multi-angle OpenClaw web searches
+- `research_source_read` — fetch bounded readable source text through OpenClaw's SSRF guard
 - `research_run_record` — transactionally store cited sources, findings, material-change assessment, and artifacts
 - `research_artifact_update` — create a new immutable artifact version
 - `research_decision_add` — retain proposed, accepted, rejected, or superseded decisions

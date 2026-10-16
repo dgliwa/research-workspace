@@ -3,6 +3,7 @@ import { defineToolPlugin } from "openclaw/plugin-sdk/tool-plugin";
 import { ResearchDatabase } from "./persistence/db.js";
 import { resolveResearchDatabasePath } from "./persistence/path.js";
 import { multiAngleSearch } from "./search.js";
+import { readPublicSource } from "./source-reader.js";
 import { ResearchService, researchInstructions } from "./service.js";
 import { ARTIFACT_TYPES, CONFIDENCE_LEVELS, DECISION_STATUSES, FINDING_KINDS, PROJECT_MODES, PROJECT_STATUSES, QUESTION_STATUSES, RESEARCH_DEPTHS, SOURCE_TIERS, SOURCE_TYPES, SUBSCRIPTION_TYPES, } from "./types.js";
 const literalUnion = (values) => Type.Union(values.map(value => Type.Literal(value)));
@@ -56,6 +57,7 @@ const plugin = defineToolPlugin({
                 const searched = await multiAngleSearch(({ args, signal: searchSignal }) => api.runtime.webSearch.search({ config: api.config, args, signal: searchSignal }), selected, resultsPerQuery ?? 8, signal);
                 return { project: detail.project, instructions: researchInstructions(detail), ...searched };
             } }),
+        tool({ name: "research_source_read", description: "Fetch and extract bounded readable text from a public HTTPS research source using SSRF protection. Use this to verify important claims instead of relying only on search snippets.", parameters: Type.Object({ url: Type.String({ format: "uri" }), maxChars: Type.Optional(Type.Integer({ minimum: 1_000, maximum: 50_000, default: 20_000 })) }, { additionalProperties: false }), execute: async ({ url, maxChars }, _config, { signal }) => readPublicSource(url, maxChars ?? 20_000, signal) }),
         tool({ name: "research_run_record", description: "Transactionally persist a completed research pass with cited sources, findings, material-change assessment, and versioned deliverables. Use source keys to connect findings to evidence.", parameters: Type.Object({
                 projectId: idSchema, depth: Type.Optional(depthSchema), summary: Type.String({ minLength: 1, maxLength: 20_000 }), methodology: Type.Optional(Type.String({ minLength: 1, maxLength: 10_000 })), materialChange: Type.Boolean(), changeSummary: Type.Optional(Type.String({ minLength: 1, maxLength: 5_000 })),
                 sources: Type.Array(Type.Object({ key: Type.String({ minLength: 1, maxLength: 100 }), url: Type.String({ format: "uri" }), title: Type.String({ minLength: 1, maxLength: 1_000 }), publisher: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })), type: sourceTypeSchema, tier: sourceTierSchema, publishedAt: Type.Optional(Type.String()), excerpt: Type.Optional(Type.String({ minLength: 1, maxLength: 10_000 })), claim: Type.Optional(Type.String({ minLength: 1, maxLength: 5_000 })) }, { additionalProperties: false }), { minItems: 2, maxItems: 100 }),
