@@ -1,0 +1,11 @@
+export const PROJECT_MODES = ["project", "watch"];
+export const PROJECT_STATUSES = ["active", "paused", "completed", "archived"];
+export const RESEARCH_DEPTHS = ["quick", "standard", "deep"];
+export const QUESTION_STATUSES = ["open", "answered", "blocked", "dismissed"];
+export const SOURCE_TIERS = ["primary", "established", "discovery", "excluded"];
+export const SOURCE_TYPES = ["official_docs", "release_notes", "repository", "paper", "independent_review", "practitioner_blog", "news", "forum", "other"];
+export const FINDING_KINDS = ["recommendation", "option", "claim", "risk", "change", "open_question"];
+export const CONFIDENCE_LEVELS = ["low", "medium", "high"];
+export const ARTIFACT_TYPES = ["report", "living_guide", "comparison", "plan", "bill_of_materials", "procedure", "decklist", "digest", "notes", "other"];
+export const DECISION_STATUSES = ["proposed", "accepted", "rejected", "superseded"];
+export const SUBSCRIPTION_TYPES = ["rss", "atom", "web", "github_releases"];
