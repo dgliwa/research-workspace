@@ -8,6 +8,7 @@ const sideEffecting = [
   "research_question_add",
   "research_question_update",
   "research_run_record",
+  "research_notification_send",
   "research_artifact_update",
   "research_decision_add",
   "research_subscription_add",

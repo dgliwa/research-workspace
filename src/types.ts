@@ -34,6 +34,7 @@ export interface ResearchProject {
   constraints: string[];
   preferredSources: string[];
   excludedSources: string[];
+  notificationTarget?: string;
   refreshIntervalDays?: number;
   lastResearchedAt?: string;
   nextResearchAt?: string;
@@ -97,6 +98,7 @@ export interface ResearchRun {
   changeSummary?: string;
   researchedAt: string;
   nextResearchAt?: string;
+  notificationSentAt?: string;
   sources: ResearchSource[];
   findings: ResearchFinding[];
   artifacts: ResearchArtifact[];

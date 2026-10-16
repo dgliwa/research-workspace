@@ -47,6 +47,14 @@ function optionalIso(input, label) {
         throw new ResearchValidationError(`${label} must be an ISO timestamp.`);
     return date.toISOString();
 }
+function notificationTarget(input) {
+    if (input === null || input === undefined)
+        return input;
+    const target = input.trim();
+    if (!/^channel:\d{10,25}$/.test(target))
+        throw new ResearchValidationError("notificationTarget must use Discord channel:<id> format.");
+    return target;
+}
 export class ResearchService {
     database;
     clock;
@@ -65,7 +73,7 @@ export class ResearchService {
             objective: required(input.objective ?? input.title, "objective"), deliverable: input.deliverable ? required(input.deliverable, "deliverable") : undefined,
             template: input.template ? required(input.template, "template", 200) : undefined,
             constraints: unique(input.constraints, "constraints"), preferredSources: unique(input.preferredSources, "preferredSources"),
-            excludedSources: unique(input.excludedSources, "excludedSources"), refreshIntervalDays: refresh,
+            excludedSources: unique(input.excludedSources, "excludedSources"), notificationTarget: notificationTarget(input.notificationTarget) ?? undefined, refreshIntervalDays: refresh,
             nextResearchAt: status === "active" ? now : undefined, questions: unique(input.questions, "questions", 50),
         }, now);
     }
@@ -85,6 +93,7 @@ export class ResearchService {
             normalized.preferredSources = unique(input.preferredSources, "preferredSources");
         if (input.excludedSources)
             normalized.excludedSources = unique(input.excludedSources, "excludedSources");
+        normalized.notificationTarget = notificationTarget(input.notificationTarget);
         normalized.nextResearchAt = optionalIso(input.nextResearchAt, "nextResearchAt");
         if (input.status === "active" && input.nextResearchAt === undefined) {
             const current = this.status(id);

@@ -11,8 +11,8 @@ describe("ResearchService",()=>{
   it("creates and completes a bounded one-shot project with cited artifacts",()=>{
     const {database,service}=setup();
     try{
-      const created=service.add({title:"Home nitro cold brew setup",objective:"Design a safe home nitro cold brew setup under $500",questions:["How many servings per day?"],constraints:["Budget under $500"]});
-      expect(created).toMatchObject({due:true,project:{mode:"project",depth:"standard",status:"active"}});
+      const created=service.add({title:"Home nitro cold brew setup",objective:"Design a safe home nitro cold brew setup under $500",questions:["How many servings per day?"],constraints:["Budget under $500"],notificationTarget:"channel:1560493947715850270"});
+      expect(created).toMatchObject({due:true,project:{mode:"project",depth:"standard",status:"active",notificationTarget:"channel:1560493947715850270"}});
       expect(service.due()).toHaveLength(1);
       const question=service.updateQuestion(created.questions[0]!.id,"answered","Two servings per day.");
       expect(question.status).toBe("answered");
@@ -25,9 +25,21 @@ describe("ResearchService",()=>{
       expect(completed.project.status).toBe("completed");
       expect(completed.due).toBe(false);
       expect(completed.latestRun?.sources).toHaveLength(4);
+      expect(completed.latestRun?.notificationSentAt).toBeUndefined();
+      expect(database.markRunNotified(completed.latestRun!.id,"2026-10-15T12:05:00.000Z")).toBe(true);
+      expect(service.status(created.project.id).latestRun?.notificationSentAt).toBe("2026-10-15T12:05:00.000Z");
       expect(completed.artifacts[0]).toMatchObject({type:"plan",version:1});
       const revised=service.updateArtifact(completed.artifacts[0]!.id,undefined,"# Revised plan");
       expect(revised.version).toBe(2);
+    }finally{database.close();}
+  });
+
+  it("validates and can clear remembered notification channels",()=>{
+    const {database,service}=setup();
+    try{
+      const project=service.add({title:"Coffee research",notificationTarget:"channel:1560493947715850270"});
+      expect(service.update(project.project.id,{notificationTarget:null}).project.notificationTarget).toBeUndefined();
+      expect(()=>service.add({title:"Bad target",notificationTarget:"general"})).toThrow(/channel:<id>/);
     }finally{database.close();}
   });
 

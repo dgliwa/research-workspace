@@ -30,11 +30,17 @@ function optionalIso(input: string | null | undefined, label: string): string | 
   const date=new Date(input); if(Number.isNaN(date.getTime())) throw new ResearchValidationError(`${label} must be an ISO timestamp.`);
   return date.toISOString();
 }
+function notificationTarget(input: string | null | undefined): string | null | undefined {
+  if(input===null || input===undefined) return input;
+  const target=input.trim();
+  if(!/^channel:\d{10,25}$/.test(target)) throw new ResearchValidationError("notificationTarget must use Discord channel:<id> format.");
+  return target;
+}
 
 export interface AddProjectInput {
   title: string; mode?: ProjectMode; status?: ProjectStatus; depth?: ResearchDepth; objective?: string;
   deliverable?: string; template?: string; constraints?: string[]; preferredSources?: string[];
-  excludedSources?: string[]; refreshIntervalDays?: number; questions?: string[];
+  excludedSources?: string[]; notificationTarget?: string; refreshIntervalDays?: number; questions?: string[];
 }
 
 export class ResearchService {
@@ -49,7 +55,7 @@ export class ResearchService {
       objective:required(input.objective ?? input.title,"objective"), deliverable:input.deliverable?required(input.deliverable,"deliverable"):undefined,
       template:input.template?required(input.template,"template",200):undefined,
       constraints:unique(input.constraints,"constraints"), preferredSources:unique(input.preferredSources,"preferredSources"),
-      excludedSources:unique(input.excludedSources,"excludedSources"), refreshIntervalDays:refresh,
+      excludedSources:unique(input.excludedSources,"excludedSources"), notificationTarget:notificationTarget(input.notificationTarget)??undefined, refreshIntervalDays:refresh,
       nextResearchAt:status==="active"?now:undefined, questions:unique(input.questions,"questions",50),
     },now);
   }
@@ -63,6 +69,7 @@ export class ResearchService {
     if(input.constraints) normalized.constraints=unique(input.constraints,"constraints");
     if(input.preferredSources) normalized.preferredSources=unique(input.preferredSources,"preferredSources");
     if(input.excludedSources) normalized.excludedSources=unique(input.excludedSources,"excludedSources");
+    normalized.notificationTarget=notificationTarget(input.notificationTarget);
     normalized.nextResearchAt=optionalIso(input.nextResearchAt,"nextResearchAt");
     if(input.status==="active" && input.nextResearchAt===undefined){ const current=this.status(id); if(current.project.status!=="active") normalized.nextResearchAt=this.now(); }
     const result=this.database.updateProject(id,normalized,this.now()); if(!result) throw new ResearchValidationError(`Unknown research project ${id}.`); return result;

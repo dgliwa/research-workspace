@@ -10,6 +10,7 @@ export interface CreateProjectRecord {
     constraints: string[];
     preferredSources: string[];
     excludedSources: string[];
+    notificationTarget?: string;
     refreshIntervalDays?: number;
     nextResearchAt?: string;
     questions: string[];
@@ -25,6 +26,7 @@ export interface UpdateProjectRecord {
     constraints?: string[];
     preferredSources?: string[];
     excludedSources?: string[];
+    notificationTarget?: string | null;
     refreshIntervalDays?: number | null;
     nextResearchAt?: string | null;
 }
@@ -98,6 +100,7 @@ export declare class ResearchDatabase {
         baselined: boolean;
         discoveredCount: number;
     };
+    markRunNotified(runId: string, now: string): boolean;
     private hydrateRun;
     private mapProject;
     private mapQuestion;

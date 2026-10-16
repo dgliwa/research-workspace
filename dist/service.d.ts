@@ -13,6 +13,7 @@ export interface AddProjectInput {
     constraints?: string[];
     preferredSources?: string[];
     excludedSources?: string[];
+    notificationTarget?: string;
     refreshIntervalDays?: number;
     questions?: string[];
 }

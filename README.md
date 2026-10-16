@@ -33,10 +33,13 @@ Research depth is `quick`, `standard`, or `deep`. Tool instructions recommend ap
 - `research_search` — execute current multi-angle OpenClaw web searches
 - `research_source_read` — fetch bounded readable source text through OpenClaw's SSRF guard
 - `research_run_record` — transactionally store cited sources, findings, material-change assessment, and artifacts
+- `research_notification_send` — deliver an initial or materially changed result once to the project's remembered Discord channel
 - `research_artifact_update` — create a new immutable artifact version
 - `research_decision_add` — retain proposed, accepted, rejected, or superseded decisions
 - `research_subscription_add` / `research_subscription_list` / `research_subscription_remove` — manage exact source subscriptions
 - `research_subscription_scan` — SSRF-guarded RSS/Atom polling with durable entry deduplication
+
+Projects can remember the Discord channel where research was requested through `notificationTarget`. Scheduled delivery uses that channel first and falls back to the configured `defaultDiscordTarget`. Unchanged recurring runs are suppressed, and stable durable-delivery intents prevent duplicate sends.
 
 ## Evidence policy
 
