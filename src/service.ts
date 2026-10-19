@@ -39,6 +39,7 @@ function notificationTarget(input: string | null | undefined): string | null | u
 
 export interface AddProjectInput {
   title: string; mode?: ProjectMode; status?: ProjectStatus; depth?: ResearchDepth; objective?: string;
+  decision?: string; budget?: string; fitConstraints?: string[]; evidenceStandard?: string;
   deliverable?: string; template?: string; constraints?: string[]; preferredSources?: string[];
   excludedSources?: string[]; notificationTarget?: string; refreshIntervalDays?: number; questions?: string[];
 }
@@ -52,7 +53,12 @@ export class ResearchService {
     const refresh=input.refreshIntervalDays ?? (mode==="watch" ? 7 : undefined);
     return this.database.createProject({
       title:required(input.title,"title",500), mode, status, depth:input.depth ?? "standard",
-      objective:required(input.objective ?? input.title,"objective"), deliverable:input.deliverable?required(input.deliverable,"deliverable"):undefined,
+      objective:required(input.objective ?? input.title,"objective"),
+      decision:required(input.decision ?? input.objective ?? input.title,"decision"),
+      budget:input.budget?required(input.budget,"budget",2_000):undefined,
+      fitConstraints:unique(input.fitConstraints ?? input.constraints,"fitConstraints"),
+      evidenceStandard:required(input.evidenceStandard ?? "Use primary or established sources for consequential claims; separate documented facts, measurements, practitioner opinion, and uncertainty.","evidenceStandard",5_000),
+      deliverable:input.deliverable?required(input.deliverable,"deliverable"):undefined,
       template:input.template?required(input.template,"template",200):undefined,
       constraints:unique(input.constraints,"constraints"), preferredSources:unique(input.preferredSources,"preferredSources"),
       excludedSources:unique(input.excludedSources,"excludedSources"), notificationTarget:notificationTarget(input.notificationTarget)??undefined, refreshIntervalDays:refresh,
@@ -64,6 +70,10 @@ export class ResearchService {
     const normalized:UpdateProjectRecord={...input};
     if(input.title!==undefined) normalized.title=required(input.title,"title",500);
     if(input.objective!==undefined) normalized.objective=required(input.objective,"objective");
+    if(input.decision!==undefined) normalized.decision=required(input.decision,"decision");
+    if(typeof input.budget==="string") normalized.budget=required(input.budget,"budget",2_000);
+    if(input.fitConstraints) normalized.fitConstraints=unique(input.fitConstraints,"fitConstraints");
+    if(input.evidenceStandard!==undefined) normalized.evidenceStandard=required(input.evidenceStandard,"evidenceStandard",5_000);
     if(typeof input.deliverable==="string") normalized.deliverable=required(input.deliverable,"deliverable");
     if(typeof input.template==="string") normalized.template=required(input.template,"template",200);
     if(input.constraints) normalized.constraints=unique(input.constraints,"constraints");
@@ -124,12 +134,19 @@ export class ResearchService {
 
 export function researchInstructions(detail:ResearchProjectDetail):string[] {
   const sourceCount={quick:"5-10",standard:"10-25",deep:"25-60"}[detail.project.depth];
+  const fit = detail.project.fitConstraints.length ? detail.project.fitConstraints.join("; ") : "No explicit fit constraints recorded; do not invent them.";
   return [
+    `Decision to support: ${detail.project.decision}`,
+    `Budget: ${detail.project.budget ?? "Not specified; do not assume a price ceiling."}`,
+    `Fit constraints: ${fit}`,
+    `Evidence standard: ${detail.project.evidenceStandard}`,
+    "Treat these four brief fields as locked. If a missing answer would materially change the recommendation, add one concise open question before exhaustive research instead of guessing.",
     `Execute ${detail.project.depth} research using roughly ${sourceCount} substantive sources when available.`,
-    "Prefer primary sources, official documentation, repositories, papers, and established practitioners.",
-    "Distinguish documented facts, measured evidence, practitioner opinion, and unresolved uncertainty.",
-    "Open and read important sources; do not synthesize solely from search snippets.",
+    "Prefer primary sources, official documentation, repositories, papers, independent reviews, and established practitioners.",
+    "Grade candidates as verified fit, likely fit, or unverified candidate; never collapse uncertainty into a recommendation.",
+    "Distinguish documented facts, measurements, practitioner opinion, and unresolved uncertainty. Open important sources; do not synthesize solely from search snippets.",
+    "Default deliverable: one recommendation, no more than two credible alternatives, the principal caveat, and concise confidence labels unless the project explicitly requests a broader comparison.",
     "Record sources, evidence-backed findings, and at least one versioned artifact with research_run_record.",
-    detail.project.mode==="watch" ? "Compare against the prior run and report only material changes." : "Answer the bounded objective and preserve unresolved questions.",
+    detail.project.mode==="watch" ? "Compare against the prior run and report only material changes." : "Answer the bounded decision and preserve unresolved questions; do not convert a one-shot project into a watch unless explicitly requested.",
   ];
 }

@@ -8,6 +8,10 @@ export interface AddProjectInput {
     status?: ProjectStatus;
     depth?: ResearchDepth;
     objective?: string;
+    decision?: string;
+    budget?: string;
+    fitConstraints?: string[];
+    evidenceStandard?: string;
     deliverable?: string;
     template?: string;
     constraints?: string[];

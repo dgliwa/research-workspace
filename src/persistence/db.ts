@@ -26,7 +26,7 @@ import type {
   SubscriptionType,
 } from "../types.js";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 type Row = Record<string, unknown>;
 
 function text(value: unknown): string | undefined {
@@ -52,6 +52,10 @@ export interface CreateProjectRecord {
   status: ProjectStatus;
   depth: ResearchDepth;
   objective: string;
+  decision: string;
+  budget?: string;
+  fitConstraints: string[];
+  evidenceStandard: string;
   deliverable?: string;
   template?: string;
   constraints: string[];
@@ -69,6 +73,10 @@ export interface UpdateProjectRecord {
   status?: ProjectStatus;
   depth?: ResearchDepth;
   objective?: string;
+  decision?: string;
+  budget?: string | null;
+  fitConstraints?: string[];
+  evidenceStandard?: string;
   deliverable?: string | null;
   template?: string | null;
   constraints?: string[];
@@ -138,7 +146,9 @@ export class ResearchDatabase {
         BEGIN IMMEDIATE;
         CREATE TABLE research_projects (
           id TEXT PRIMARY KEY, title TEXT NOT NULL, mode TEXT NOT NULL, status TEXT NOT NULL,
-          depth TEXT NOT NULL, objective TEXT NOT NULL, deliverable TEXT, template TEXT,
+          depth TEXT NOT NULL, objective TEXT NOT NULL,
+          decision TEXT NOT NULL, budget TEXT, fit_constraints_json TEXT NOT NULL, evidence_standard TEXT NOT NULL,
+          deliverable TEXT, template TEXT,
           constraints_json TEXT NOT NULL, preferred_sources_json TEXT NOT NULL, excluded_sources_json TEXT NOT NULL,
           notification_target TEXT, refresh_interval_days INTEGER, last_researched_at TEXT, next_research_at TEXT,
           created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
@@ -196,7 +206,7 @@ export class ResearchDatabase {
         CREATE INDEX research_runs_project_idx ON research_runs(project_id, researched_at DESC);
         CREATE INDEX research_artifacts_project_idx ON research_artifacts(project_id, artifact_type, version DESC);
         CREATE INDEX research_subscriptions_due_idx ON research_subscriptions(enabled, next_check_at);
-        PRAGMA user_version = 2;
+        PRAGMA user_version = 3;
         COMMIT;
       `);
     }
@@ -209,6 +219,21 @@ export class ResearchDatabase {
         COMMIT;
       `);
     }
+    if (version > 0 && version < 3) {
+      this.db.exec(`
+        BEGIN IMMEDIATE;
+        ALTER TABLE research_projects ADD COLUMN decision TEXT;
+        ALTER TABLE research_projects ADD COLUMN budget TEXT;
+        ALTER TABLE research_projects ADD COLUMN fit_constraints_json TEXT NOT NULL DEFAULT '[]';
+        ALTER TABLE research_projects ADD COLUMN evidence_standard TEXT;
+        UPDATE research_projects SET
+          decision = objective,
+          fit_constraints_json = constraints_json,
+          evidence_standard = 'Use primary or established sources for consequential claims; separate facts, measurements, practitioner opinion, and uncertainty.';
+        PRAGMA user_version = 3;
+        COMMIT;
+      `);
+    }
   }
 
   createProject(input: CreateProjectRecord, now: string): ResearchProjectDetail {
@@ -216,11 +241,16 @@ export class ResearchDatabase {
     this.db.exec("BEGIN IMMEDIATE");
     try {
       this.db.prepare(`INSERT INTO research_projects
-        (id,title,mode,status,depth,objective,deliverable,template,constraints_json,preferred_sources_json,excluded_sources_json,notification_target,refresh_interval_days,next_research_at,created_at,updated_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
-        id, input.title, input.mode, input.status, input.depth, input.objective, input.deliverable ?? null,
-        input.template ?? null, JSON.stringify(input.constraints), JSON.stringify(input.preferredSources),
-        JSON.stringify(input.excludedSources), input.notificationTarget ?? null, input.refreshIntervalDays ?? null, input.nextResearchAt ?? null, now, now,
+        (id,title,mode,status,depth,objective,decision,budget,fit_constraints_json,evidence_standard,
+         deliverable,template,constraints_json,preferred_sources_json,excluded_sources_json,
+         notification_target,refresh_interval_days,next_research_at,created_at,updated_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+        id, input.title, input.mode, input.status, input.depth, input.objective,
+        input.decision, input.budget ?? null, JSON.stringify(input.fitConstraints), input.evidenceStandard,
+        input.deliverable ?? null, input.template ?? null, JSON.stringify(input.constraints),
+        JSON.stringify(input.preferredSources), JSON.stringify(input.excludedSources),
+        input.notificationTarget ?? null, input.refreshIntervalDays ?? null,
+        input.nextResearchAt ?? null, now, now,
       );
       const insertQuestion = this.db.prepare("INSERT INTO research_questions (id,project_id,question,status,created_at,updated_at) VALUES (?,?,?,?,?,?)");
       for (const question of input.questions) insertQuestion.run(randomUUID(), id, question, "open", now, now);
@@ -229,13 +259,17 @@ export class ResearchDatabase {
     return this.getProjectDetail(id, now)!;
   }
 
-  updateProject(id: string, input: UpdateProjectRecord, now: string): ResearchProjectDetail | undefined {
-    const current = this.getProject(id);
-    if (!current) return undefined;
-    this.db.prepare(`UPDATE research_projects SET title=?,mode=?,status=?,depth=?,objective=?,deliverable=?,template=?,
-      constraints_json=?,preferred_sources_json=?,excluded_sources_json=?,notification_target=?,refresh_interval_days=?,next_research_at=?,updated_at=? WHERE id=?`).run(
+  updateProject(id: string, input: UpdateProjectRecord, now: string): ResearchProjectDetail {
+    const current = this.getProject(id); if (!current) throw new Error(`Unknown research project ${id}.`);
+    this.db.prepare(`UPDATE research_projects SET
+      title=?,mode=?,status=?,depth=?,objective=?,decision=?,budget=?,fit_constraints_json=?,evidence_standard=?,
+      deliverable=?,template=?,constraints_json=?,preferred_sources_json=?,excluded_sources_json=?,
+      notification_target=?,refresh_interval_days=?,next_research_at=?,updated_at=? WHERE id=?`).run(
       input.title ?? current.title, input.mode ?? current.mode, input.status ?? current.status, input.depth ?? current.depth,
-      input.objective ?? current.objective, input.deliverable === undefined ? current.deliverable ?? null : input.deliverable,
+      input.objective ?? current.objective, input.decision ?? current.decision,
+      input.budget === undefined ? current.budget ?? null : input.budget,
+      JSON.stringify(input.fitConstraints ?? current.fitConstraints), input.evidenceStandard ?? current.evidenceStandard,
+      input.deliverable === undefined ? current.deliverable ?? null : input.deliverable,
       input.template === undefined ? current.template ?? null : input.template,
       JSON.stringify(input.constraints ?? current.constraints), JSON.stringify(input.preferredSources ?? current.preferredSources),
       JSON.stringify(input.excludedSources ?? current.excludedSources),
@@ -354,7 +388,7 @@ export class ResearchDatabase {
     const id=String(row.id);
     return { id, projectId:String(row.project_id), depth:String(row.depth) as ResearchDepth, summary:String(row.summary), methodology:text(row.methodology), materialChange:bool(row.material_change), changeSummary:text(row.change_summary), researchedAt:String(row.researched_at), nextResearchAt:text(row.next_research_at), notificationSentAt:text(row.notification_sent_at), sources:rows(this.db.prepare("SELECT * FROM research_sources WHERE run_id=? ORDER BY retrieved_at,id"),id).map((source)=>this.mapSource(source)), findings:rows(this.db.prepare("SELECT * FROM research_findings WHERE run_id=? ORDER BY rowid"),id).map((finding)=>this.mapFinding(finding)), artifacts:rows(this.db.prepare("SELECT * FROM research_artifacts WHERE run_id=? ORDER BY rowid"),id).map((artifact)=>this.mapArtifact(artifact)) };
   }
-  private mapProject(row: Row): ResearchProject { return { id:String(row.id),title:String(row.title),mode:String(row.mode) as ProjectMode,status:String(row.status) as ProjectStatus,depth:String(row.depth) as ResearchDepth,objective:String(row.objective),deliverable:text(row.deliverable),template:text(row.template),constraints:jsonStrings(row.constraints_json),preferredSources:jsonStrings(row.preferred_sources_json),excludedSources:jsonStrings(row.excluded_sources_json),notificationTarget:text(row.notification_target),refreshIntervalDays:row.refresh_interval_days==null?undefined:Number(row.refresh_interval_days),lastResearchedAt:text(row.last_researched_at),nextResearchAt:text(row.next_research_at),createdAt:String(row.created_at),updatedAt:String(row.updated_at) }; }
+  private mapProject(row: Row): ResearchProject { return { id:String(row.id),title:String(row.title),mode:String(row.mode) as ProjectMode,status:String(row.status) as ProjectStatus,depth:String(row.depth) as ResearchDepth,objective:String(row.objective),decision:String(row.decision ?? row.objective),budget:text(row.budget),fitConstraints:jsonStrings(row.fit_constraints_json),evidenceStandard:String(row.evidence_standard),deliverable:text(row.deliverable),template:text(row.template),constraints:jsonStrings(row.constraints_json),preferredSources:jsonStrings(row.preferred_sources_json),excludedSources:jsonStrings(row.excluded_sources_json),notificationTarget:text(row.notification_target),refreshIntervalDays:row.refresh_interval_days==null?undefined:Number(row.refresh_interval_days),lastResearchedAt:text(row.last_researched_at),nextResearchAt:text(row.next_research_at),createdAt:String(row.created_at),updatedAt:String(row.updated_at) }; }
   private mapQuestion(row: Row): ResearchQuestion { return {id:String(row.id),projectId:String(row.project_id),question:String(row.question),status:String(row.status) as QuestionStatus,answer:text(row.answer),createdAt:String(row.created_at),updatedAt:String(row.updated_at)}; }
   private mapSource(row: Row): ResearchSource { return {id:String(row.id),runId:String(row.run_id),url:String(row.url),title:String(row.title),publisher:text(row.publisher),type:String(row.source_type) as SourceType,tier:String(row.tier) as SourceTier,publishedAt:text(row.published_at),retrievedAt:String(row.retrieved_at),excerpt:text(row.excerpt),claim:text(row.claim)}; }
   private mapFinding(row: Row): ResearchFinding { return {id:String(row.id),runId:String(row.run_id),kind:String(row.kind) as FindingKind,title:String(row.title),detail:String(row.detail),confidence:String(row.confidence) as ConfidenceLevel,sourceIds:jsonStrings(row.source_ids_json)}; }
