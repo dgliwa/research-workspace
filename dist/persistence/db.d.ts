@@ -5,6 +5,10 @@ export interface CreateProjectRecord {
     status: ProjectStatus;
     depth: ResearchDepth;
     objective: string;
+    decision: string;
+    budget?: string;
+    fitConstraints: string[];
+    evidenceStandard: string;
     deliverable?: string;
     template?: string;
     constraints: string[];
@@ -21,6 +25,10 @@ export interface UpdateProjectRecord {
     status?: ProjectStatus;
     depth?: ResearchDepth;
     objective?: string;
+    decision?: string;
+    budget?: string | null;
+    fitConstraints?: string[];
+    evidenceStandard?: string;
     deliverable?: string | null;
     template?: string | null;
     constraints?: string[];
@@ -68,7 +76,7 @@ export declare class ResearchDatabase {
     quickCheck(): string[];
     private migrate;
     createProject(input: CreateProjectRecord, now: string): ResearchProjectDetail;
-    updateProject(id: string, input: UpdateProjectRecord, now: string): ResearchProjectDetail | undefined;
+    updateProject(id: string, input: UpdateProjectRecord, now: string): ResearchProjectDetail;
     getProject(id: string): ResearchProject | undefined;
     listProjects(options: {
         status?: ProjectStatus;
